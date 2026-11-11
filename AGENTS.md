@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Payments use Lenco Pay: browser popup opens with a server-generated reference (`vote-`/`tkt-` prefix), and only `finalizePayment` in src/lib/lenco.server.ts (after re-checking Lenco's status API) marks orders paid — why: the browser callback can be faked.
+- Lenco API calls must send a User-Agent header — why: Lenco's Cloudflare firewall returns 403 without one.
+- Data lives in the owner's own Postgres reached through DATABASE_URL with the `postgres` driver; schema is created at runtime by src/lib/schema.server.ts — why: the owner chose to keep their existing database instead of Lovable Cloud.
+- Admin sign-in is a single ADMIN_EMAIL/ADMIN_PASSWORD account with a sealed cookie session (SESSION_SECRET) — why: carried over from the original project.
