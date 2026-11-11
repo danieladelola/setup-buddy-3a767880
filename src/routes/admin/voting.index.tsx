@@ -266,7 +266,7 @@ function VotingPage() {
         reports.data.mismatches > 0 ? (
           <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{reports.data.mismatches} contestant{reports.data.mismatches === 1 ? "" : "s"} show a website total that differs from their confirmed votes. Review them in the table below.</span>
+            <span>{reports.data.mismatches} contestant{reports.data.mismatches === 1 ? " shows" : "s show"} a website total that differs from their confirmed votes. Review them in the table below.</span>
           </div>
         ) : (
           <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">

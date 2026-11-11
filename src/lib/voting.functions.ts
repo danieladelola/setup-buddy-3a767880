@@ -309,9 +309,9 @@ export const listVotePayments = createServerFn({ method: "GET" })
         SELECT v.id, v.payment_ref, v.lenco_ref, v.contestant_id, c.full_name AS contestant_name,
                cp.name AS campaign_name, v.quantity, v.amount::float AS amount, v.paid_amount::float AS paid_amount,
                v.voter_email, v.payment_channel, v.status, v.lenco_status, v.failure_reason,
-               to_char(v.created_at,'YYYY-MM-DD"T"HH24:MI:SSOF') AS created_at,
-               to_char(v.paid_at,'YYYY-MM-DD"T"HH24:MI:SSOF') AS paid_at,
-               to_char(v.last_checked_at,'YYYY-MM-DD"T"HH24:MI:SSOF') AS last_checked_at
+               to_char(v.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+               to_char(v.paid_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS paid_at,
+               to_char(v.last_checked_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS last_checked_at
         FROM votes v
         LEFT JOIN contestants c ON c.id = v.contestant_id
         LEFT JOIN campaigns cp ON cp.id = v.campaign_id

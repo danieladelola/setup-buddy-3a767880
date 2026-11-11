@@ -194,23 +194,22 @@ function PaymentsPage() {
 
         {/* Desktop table */}
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-[#F5F4EE] text-left text-xs uppercase tracking-wider text-[#1b2a22]/60">
               <tr>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Reference</th>
-                <th className="px-4 py-3">Contestant</th>
+                <th className="px-4 py-3">Contestant / voter</th>
                 <th className="px-4 py-3 text-right">Votes</th>
                 <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3">Voter</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1b4332]/10">
-              {list.isLoading && <tr><td colSpan={8} className="px-4 py-10 text-center text-[#1b2a22]/60">Loading...</td></tr>}
-              {list.error && <tr><td colSpan={8} className="px-4 py-10 text-center text-red-700">{(list.error as Error).message}</td></tr>}
-              {list.data?.rows.length === 0 && <tr><td colSpan={8} className="px-4 py-12 text-center text-[#1b2a22]/60">No payments match.</td></tr>}
+              {list.isLoading && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#1b2a22]/60">Loading...</td></tr>}
+              {list.error && <tr><td colSpan={7} className="px-4 py-10 text-center text-red-700">{(list.error as Error).message}</td></tr>}
+              {list.data?.rows.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-[#1b2a22]/60">No payments match.</td></tr>}
               {list.data?.rows.map((r) => (
                 <tr key={r.id} className="align-top hover:bg-[#F5F4EE]/60">
                   <td className="px-4 py-3 whitespace-nowrap text-[#1b2a22]/80">
@@ -218,16 +217,18 @@ function PaymentsPage() {
                     {r.paid_at && <div className="text-xs text-emerald-800">Paid {fmtDate(r.paid_at)}</div>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-mono text-xs text-[#1b2a22]">{r.payment_ref ?? "Free vote"}</div>
+                    <div className="font-mono text-xs text-[#1b2a22] break-all">{r.payment_ref ?? "Free vote"}</div>
                     {r.lenco_ref && <div className="font-mono text-xs text-[#1b2a22]/50">Lenco: {r.lenco_ref}</div>}
                   </td>
-                  <td className="px-4 py-3">{r.contestant_name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <div>{r.contestant_name ?? "—"}</div>
+                    {r.voter_email && <div className="max-w-[220px] truncate text-xs text-[#1b2a22]/60" title={r.voter_email}>{r.voter_email}</div>}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">{r.quantity}</td>
                   <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                     ZMW {money(r.amount)}
                     {r.payment_channel && <div className="text-xs text-[#1b2a22]/50">{r.payment_channel}</div>}
                   </td>
-                  <td className="px-4 py-3 break-all text-[#1b2a22]/80">{r.voter_email ?? "—"}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={r.status} />
                     {r.failure_reason && r.status !== "valid" && <div className="mt-1 max-w-[220px] text-xs text-[#1b2a22]/60">{r.failure_reason}</div>}
