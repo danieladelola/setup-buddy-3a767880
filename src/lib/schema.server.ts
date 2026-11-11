@@ -197,6 +197,25 @@ export function ensureSchema(): Promise<void> {
       CREATE UNIQUE INDEX IF NOT EXISTS votes_payment_ref_key   ON votes(payment_ref);
       CREATE UNIQUE INDEX IF NOT EXISTS tickets_payment_ref_key ON tickets(payment_ref);
 
+      -- Payment verification details recorded from Lenco.
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS paid_at         TIMESTAMPTZ;
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS paid_amount     NUMERIC(10,2);
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS lenco_ref       TEXT;
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS lenco_status    TEXT;
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS payment_channel TEXT;
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS failure_reason  TEXT;
+      ALTER TABLE votes   ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS paid_at         TIMESTAMPTZ;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS paid_amount     NUMERIC(10,2);
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS lenco_ref       TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS lenco_status    TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS payment_channel TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS failure_reason  TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS votes_status_idx   ON votes(status);
+      CREATE INDEX IF NOT EXISTS votes_created_idx  ON votes(created_at);
+      CREATE INDEX IF NOT EXISTS tickets_status_idx ON tickets(status);
+
     `);
 
     // Seed initial admin from env if table is empty
@@ -212,21 +231,21 @@ export function ensureSchema(): Promise<void> {
       }
     }
 
-    // Seed demo contestants if empty
+    // Seed demo contestants if empty. They start at 0 votes: public totals only ever come from confirmed votes.
     const cCount = await sql`SELECT COUNT(*)::int AS n FROM contestants`;
     if ((cCount[0] as { n: number }).n === 0) {
       const demo = [
-        { full_name: "Chileshe Mwila", province: "Copperbelt", district: "Kitwe", agri_project: "School Agribusiness Clubs", biography: "Champion of school-led agribusiness programs across the Copperbelt.", votes: 18420 },
-        { full_name: "Natasha Banda", province: "Lusaka", district: "Lusaka", agri_project: "Urban Farming Cooperative", biography: "Building urban farming cooperatives that feed the capital.", votes: 16930 },
-        { full_name: "Isabella Dorcas Phiri", province: "Northern", district: "Kasama", agri_project: "Copperbelt", biography: "Connecting smallholder maize farmers to fair markets.", votes: 12180 },
-        { full_name: "Mirriam Beenzu", province: "Eastern", district: "Chipata", agri_project: "Lusaka", biography: "Empowering women through community poultry enterprises.", votes: 14210 },
-        { full_name: "Bwalya Kapamba", province: "Muchinga", district: "Mpika", agri_project: "Honey Value Chain", biography: "Developing a sustainable honey value chain in Muchinga.", votes: 9870 },
+        { full_name: "Chileshe Mwila", province: "Copperbelt", district: "Kitwe", agri_project: "School Agribusiness Clubs", biography: "Champion of school-led agribusiness programs across the Copperbelt." },
+        { full_name: "Natasha Banda", province: "Lusaka", district: "Lusaka", agri_project: "Urban Farming Cooperative", biography: "Building urban farming cooperatives that feed the capital." },
+        { full_name: "Isabella Dorcas Phiri", province: "Northern", district: "Kasama", agri_project: "Copperbelt", biography: "Connecting smallholder maize farmers to fair markets." },
+        { full_name: "Mirriam Beenzu", province: "Eastern", district: "Chipata", agri_project: "Lusaka", biography: "Empowering women through community poultry enterprises." },
+        { full_name: "Bwalya Kapamba", province: "Muchinga", district: "Mpika", agri_project: "Honey Value Chain", biography: "Developing a sustainable honey value chain in Muchinga." },
         
       ];
       for (const c of demo) {
         await sql`
           INSERT INTO contestants (full_name, province, district, agri_project, biography, status, votes)
-          VALUES (${c.full_name}, ${c.province}, ${c.district}, ${c.agri_project}, ${c.biography}, 'approved', ${c.votes})
+          VALUES (${c.full_name}, ${c.province}, ${c.district}, ${c.agri_project}, ${c.biography}, 'approved', 0)
         `;
       }
     }

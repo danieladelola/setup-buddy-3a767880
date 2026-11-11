@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestIP } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { voteAmount } from "./payment-rules";
 
 // ---------- Public types ----------
 
@@ -74,8 +75,10 @@ export const getPublicActiveCampaign = createServerFn({ method: "GET" }).handler
   },
 );
 
+export type Leaderboard = { rows: LeaderboardRow[]; totalVotes: number; contestants: number };
+
 export const getLeaderboard = createServerFn({ method: "GET" }).handler(
-  async (): Promise<LeaderboardRow[]> => {
+  async (): Promise<Leaderboard> => {
     const { ensureSchema } = await import("./schema.server");
     await ensureSchema();
     const { getDb } = await import("./db.server");
@@ -85,9 +88,13 @@ export const getLeaderboard = createServerFn({ method: "GET" }).handler(
       FROM contestants
       WHERE status IN ('approved','active')
       ORDER BY votes DESC, id ASC
-      LIMIT 10
     `;
-    return rows as unknown as LeaderboardRow[];
+    const all = rows as unknown as LeaderboardRow[];
+    return {
+      rows: all.slice(0, 10),
+      totalVotes: all.reduce((n, r) => n + Number(r.votes), 0),
+      contestants: all.length,
+    };
   },
 );
 
@@ -149,14 +156,17 @@ export const castVote = createServerFn({ method: "POST" })
     }
 
     // 4) Compute amount server-side.
-    const amount = Number((data.quantity * campaign.price_per_vote).toFixed(2));
+    const amount = voteAmount(data.quantity, campaign.price_per_vote);
 
-    // 5) Future payment gateway hook. Until a gateway is wired up the vote is
-    //    accepted as 'valid' when price is 0, otherwise 'pending'.
+    // 5) Free campaigns count immediately. Paid votes stay 'pending' (never counted) until
+    //    finalizePayment confirms the payment with Lenco.
     const paymentConfirmed = campaign.price_per_vote === 0;
     const status: "valid" | "pending" = paymentConfirmed ? "valid" : "pending";
     if (!paymentConfirmed && !data.voter_email) throw new Error("Please enter your email to pay for votes.");
-    const { newReference } = await import("./lenco.server");
+    const { newReference, paymentsConfigured } = await import("./lenco.server");
+    if (!paymentConfirmed && !paymentsConfigured()) {
+      throw new Error("Online payments are not available right now. Please try again later.");
+    }
     const payment_ref = paymentConfirmed ? null : newReference("vote");
 
     // 6) Atomic insert + counter bump.

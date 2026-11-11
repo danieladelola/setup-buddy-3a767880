@@ -25,16 +25,16 @@ export const getDashboardOverview = createServerFn({ method: "GET" }).handler(as
   ] = await Promise.all([
     sql`SELECT COUNT(*)::int AS n FROM contestants`,
     sql`SELECT COUNT(*)::int AS n FROM contestants WHERE status = 'approved'`,
-    sql`SELECT COUNT(*)::int AS n FROM votes`,
-    sql`SELECT COALESCE(SUM(amount),0)::float AS n FROM votes`,
+    sql`SELECT COALESCE(SUM(quantity),0)::int AS n FROM votes WHERE status = 'valid'`,
+    sql`SELECT COALESCE(SUM(amount),0)::float AS n FROM votes WHERE status = 'valid'`,
     sql`SELECT COUNT(*)::int AS n FROM applicants`,
     sql`SELECT COUNT(*)::int AS n FROM events WHERE starts_at >= NOW()`,
     sql`SELECT COUNT(*)::int AS n FROM sponsors`,
     sql`SELECT COUNT(*)::int AS n FROM media_assets`,
     sql`SELECT COALESCE(province,'Unassigned') AS province, COUNT(*)::int AS n FROM contestants GROUP BY 1 ORDER BY n DESC LIMIT 10`,
-    sql`SELECT to_char(date_trunc('day', created_at),'YYYY-MM-DD') AS day, COUNT(*)::int AS n FROM votes WHERE created_at >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1`,
+    sql`SELECT to_char(date_trunc('day', COALESCE(paid_at, created_at)),'YYYY-MM-DD') AS day, SUM(quantity)::int AS n FROM votes WHERE status = 'valid' AND COALESCE(paid_at, created_at) >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1`,
     sql`SELECT to_char(date_trunc('day', created_at),'YYYY-MM-DD') AS day, COUNT(*)::int AS n FROM applicants WHERE created_at >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1`,
-    sql`SELECT to_char(date_trunc('day', created_at),'YYYY-MM-DD') AS day, COALESCE(SUM(amount),0)::float AS n FROM votes WHERE created_at >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1`,
+    sql`SELECT to_char(date_trunc('day', COALESCE(paid_at, created_at)),'YYYY-MM-DD') AS day, COALESCE(SUM(amount),0)::float AS n FROM votes WHERE status = 'valid' AND COALESCE(paid_at, created_at) >= NOW() - INTERVAL '14 days' GROUP BY 1 ORDER BY 1`,
     sql`SELECT id, kind, message, to_char(created_at,'YYYY-MM-DD"T"HH24:MI:SSOF') AS created_at FROM activities ORDER BY id DESC LIMIT 10`,
   ]);
 

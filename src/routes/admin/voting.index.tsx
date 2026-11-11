@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Play, Pause, Square, Trash2, ShieldAlert, Pencil } from "lucide-react";
+import { Play, Pause, Square, Trash2, ShieldAlert, Pencil, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { requireAdmin } from "@/lib/admin.functions";
 import {
   listCampaigns,
@@ -23,7 +23,9 @@ import {
   deleteCampaign,
   detectDuplicates,
   getVotingReports,
+  syncContestantVotes,
 } from "@/lib/voting.functions";
+import { Link } from "@tanstack/react-router";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +92,15 @@ function VotingPage() {
     mutationFn: (id: number) => delFn({ data: { id } }),
     onSuccess: refresh,
   });
-  const dedup = useMutation({ mutationFn: () => dedupFn(), onSuccess: refresh });
+  const syncFn = useServerFn(syncContestantVotes);
+  const dedup = useMutation({
+    mutationFn: () => dedupFn(),
+    onSuccess: (r) => { refresh(); alert(r.flagged === 0 ? "No duplicate free votes found." : `${r.flagged} duplicate free votes removed from totals.`); },
+  });
+  const sync = useMutation({
+    mutationFn: (contestant_id: number) => syncFn({ data: { contestant_id } }),
+    onSuccess: refresh,
+  });
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -115,7 +125,7 @@ function VotingPage() {
     },
   });
 
-  const fraud = reports.data?.fraud;
+  const totals = reports.data?.totals;
 
   return (
     <AdminShell
@@ -130,7 +140,7 @@ function VotingPage() {
             disabled={dedup.isPending}
           >
             <ShieldAlert className="mr-2 h-4 w-4" />
-            {dedup.isPending ? "Scanning..." : "Run fraud scan"}
+            {dedup.isPending ? "Scanning..." : "Scan free votes for duplicates"}
           </Button>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); create.reset(); } }}>
             <DialogTrigger asChild>
@@ -236,15 +246,35 @@ function VotingPage() {
       }
     >
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Counter label="Valid votes" value={fraud?.valid ?? 0} accent="#1b4332" />
-        <Counter label="Duplicates" value={fraud?.duplicate ?? 0} accent="#b45309" />
-        <Counter label="Flagged" value={fraud?.flagged ?? 0} accent="#b91c1c" />
+        <Counter label="Confirmed votes" value={(totals?.valid_votes ?? 0).toLocaleString()} accent="#1b4332" />
+        <Counter label="Paid transactions" value={(totals?.paid_transactions ?? 0).toLocaleString()} accent="#2d6a4f" />
+        <Counter label="Awaiting payment" value={(totals?.pending ?? 0).toLocaleString()} accent="#b45309" />
         <Counter
           label="Revenue (ZMW)"
-          value={(reports.data?.revenueTotal ?? 0).toLocaleString()}
+          value={(totals?.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           accent="#d4af37"
         />
       </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#1b2a22]/70">
+        <span>Failed / abandoned: <b className="tabular-nums">{totals?.failed ?? 0}</b></span>
+        <span>Needs review: <b className="tabular-nums">{totals?.review ?? 0}</b></span>
+        <span>Duplicates: <b className="tabular-nums">{totals?.duplicate ?? 0}</b></span>
+        <span>Public total (website): <b className="tabular-nums">{(reports.data?.publicTotal ?? 0).toLocaleString()}</b></span>
+        <Link to="/admin/payments" className="font-medium text-[#1b4332] underline underline-offset-2">View all payment records →</Link>
+      </div>
+      {reports.data && (
+        reports.data.mismatches > 0 ? (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{reports.data.mismatches} contestant{reports.data.mismatches === 1 ? "" : "s"} show a website total that differs from their confirmed votes. Review them in the table below.</span>
+          </div>
+        ) : (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Website totals match confirmed votes for every contestant.
+          </div>
+        )
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ChartCard title="Daily votes (last 30 days)">
@@ -280,7 +310,8 @@ function VotingPage() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Window</th>
               <th className="px-4 py-3">Price</th>
-              <th className="px-4 py-3">Valid</th>
+              <th className="px-4 py-3">Confirmed votes</th>
+              <th className="px-4 py-3">Awaiting payment</th>
               <th className="px-4 py-3">Flagged</th>
               <th className="px-4 py-3">Revenue</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -288,10 +319,10 @@ function VotingPage() {
           </thead>
           <tbody className="divide-y divide-[#1b4332]/10">
             {campaigns.isLoading && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-[#1b2a22]/60">Loading...</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-[#1b2a22]/60">Loading...</td></tr>
             )}
             {campaigns.data?.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-[#1b2a22]/60">No campaigns yet.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-[#1b2a22]/60">No campaigns yet.</td></tr>
             )}
             {campaigns.data?.map((c) => (
               <tr key={c.id} className="hover:bg-[#F5F4EE]/60">
@@ -302,6 +333,7 @@ function VotingPage() {
                 </td>
                 <td className="px-4 py-3 tabular-nums">ZMW {Number(c.price_per_vote).toFixed(2)}</td>
                 <td className="px-4 py-3 tabular-nums">{c.valid_votes}</td>
+                <td className="px-4 py-3 tabular-nums">{c.pending_payments}</td>
                 <td className="px-4 py-3 tabular-nums">{c.flagged_votes}</td>
                 <td className="px-4 py-3 tabular-nums">ZMW {Number(c.revenue).toLocaleString()}</td>
                 <td className="px-4 py-3">
@@ -345,26 +377,57 @@ function VotingPage() {
         </table>
       </SectionCard>
 
-      <SectionCard title="Votes per contestant (top 20)" className="mt-6">
-        <table className="w-full min-w-[640px] text-sm">
+      <SectionCard title="Votes per contestant" className="mt-6">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-[#F5F4EE] text-left text-xs uppercase tracking-wider text-[#1b2a22]/60">
             <tr>
+              <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Contestant</th>
-              <th className="px-4 py-3">Valid votes</th>
+              <th className="px-4 py-3">Website total</th>
+              <th className="px-4 py-3">Confirmed votes</th>
+              <th className="px-4 py-3">Transactions</th>
               <th className="px-4 py-3">Revenue (ZMW)</th>
+              <th className="px-4 py-3 text-right">Check</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1b4332]/10">
             {reports.data?.perContestant?.length === 0 && (
-              <tr><td colSpan={3} className="px-4 py-8 text-center text-[#1b2a22]/60">No votes yet.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-[#1b2a22]/60">No contestants open for voting.</td></tr>
             )}
-            {reports.data?.perContestant?.map((r) => (
-              <tr key={r.id}>
-                <td className="px-4 py-3">{r.full_name}</td>
-                <td className="px-4 py-3 tabular-nums">{r.votes}</td>
-                <td className="px-4 py-3 tabular-nums">{Number(r.revenue).toLocaleString()}</td>
-              </tr>
-            ))}
+            {reports.data?.perContestant?.map((r, i) => {
+              const live = r.status === "approved" || r.status === "active";
+              const match = r.public_votes === r.confirmed_votes;
+              return (
+                <tr key={r.id}>
+                  <td className="px-4 py-3 tabular-nums text-[#1b2a22]/60">{i + 1}</td>
+                  <td className="px-4 py-3">
+                    {r.full_name}
+                    {!live && <span className="ml-2 text-xs text-[#1b2a22]/50">({r.status})</span>}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{r.public_votes.toLocaleString()}</td>
+                  <td className="px-4 py-3 tabular-nums">{r.confirmed_votes.toLocaleString()}</td>
+                  <td className="px-4 py-3 tabular-nums">{r.transactions}</td>
+                  <td className="px-4 py-3 tabular-nums">{Number(r.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-3 text-right">
+                    {match ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-800"><CheckCircle2 className="h-3.5 w-3.5" />Matches</span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={sync.isPending}
+                        title="Set the website total to the confirmed votes"
+                        onClick={() => {
+                          if (confirm(`Set ${r.full_name}'s website total from ${r.public_votes} to ${r.confirmed_votes} confirmed votes?`)) sync.mutate(r.id);
+                        }}
+                      >
+                        <RefreshCw className="mr-1 h-3.5 w-3.5" />Match to {r.confirmed_votes}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </SectionCard>

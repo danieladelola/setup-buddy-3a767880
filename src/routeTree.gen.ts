@@ -27,6 +27,7 @@ import { Route as AdminContestantsNewRouteImport } from './routes/admin/contesta
 import { Route as AdminEventsIndexRouteImport } from './routes/admin/events.index'
 import { Route as AdminEventsRegistrationsRouteImport } from './routes/admin/events.registrations'
 import { Route as AdminMediaIndexRouteImport } from './routes/admin/media.index'
+import { Route as AdminPaymentsIndexRouteImport } from './routes/admin/payments.index'
 import { Route as AdminSponsorsIndexRouteImport } from './routes/admin/sponsors.index'
 import { Route as AdminVotingIndexRouteImport } from './routes/admin/voting.index'
 import { Route as ApiAdminGeneratePortraitRouteImport } from './routes/api/admin/generate-portrait'
@@ -126,6 +127,11 @@ const AdminMediaIndexRoute = AdminMediaIndexRouteImport.update({
   path: '/admin/media/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentsIndexRoute = AdminPaymentsIndexRouteImport.update({
+  id: '/admin/payments/',
+  path: '/admin/payments/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSponsorsIndexRoute = AdminSponsorsIndexRouteImport.update({
   id: '/admin/sponsors/',
   path: '/admin/sponsors/',
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/admin/contestants/': typeof AdminContestantsIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/media/': typeof AdminMediaIndexRoute
+  '/admin/payments/': typeof AdminPaymentsIndexRoute
   '/admin/sponsors/': typeof AdminSponsorsIndexRoute
   '/admin/voting/': typeof AdminVotingIndexRoute
 }
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/admin/contestants': typeof AdminContestantsIndexRoute
   '/admin/events': typeof AdminEventsIndexRoute
   '/admin/media': typeof AdminMediaIndexRoute
+  '/admin/payments': typeof AdminPaymentsIndexRoute
   '/admin/sponsors': typeof AdminSponsorsIndexRoute
   '/admin/voting': typeof AdminVotingIndexRoute
 }
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/admin/contestants/': typeof AdminContestantsIndexRoute
   '/admin/events/': typeof AdminEventsIndexRoute
   '/admin/media/': typeof AdminMediaIndexRoute
+  '/admin/payments/': typeof AdminPaymentsIndexRoute
   '/admin/sponsors/': typeof AdminSponsorsIndexRoute
   '/admin/voting/': typeof AdminVotingIndexRoute
 }
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/admin/contestants/'
     | '/admin/events/'
     | '/admin/media/'
+    | '/admin/payments/'
     | '/admin/sponsors/'
     | '/admin/voting/'
   fileRoutesByTo: FileRoutesByTo
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/admin/contestants'
     | '/admin/events'
     | '/admin/media'
+    | '/admin/payments'
     | '/admin/sponsors'
     | '/admin/voting'
   id:
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/admin/contestants/'
     | '/admin/events/'
     | '/admin/media/'
+    | '/admin/payments/'
     | '/admin/sponsors/'
     | '/admin/voting/'
   fileRoutesById: FileRoutesById
@@ -353,6 +365,7 @@ export interface RootRouteChildren {
   AdminContestantsIndexRoute: typeof AdminContestantsIndexRoute
   AdminEventsIndexRoute: typeof AdminEventsIndexRoute
   AdminMediaIndexRoute: typeof AdminMediaIndexRoute
+  AdminPaymentsIndexRoute: typeof AdminPaymentsIndexRoute
   AdminSponsorsIndexRoute: typeof AdminSponsorsIndexRoute
   AdminVotingIndexRoute: typeof AdminVotingIndexRoute
 }
@@ -485,6 +498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMediaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payments/': {
+      id: '/admin/payments/'
+      path: '/admin/payments'
+      fullPath: '/admin/payments/'
+      preLoaderRoute: typeof AdminPaymentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/sponsors/': {
       id: '/admin/sponsors/'
       path: '/admin/sponsors'
@@ -561,6 +581,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminContestantsIndexRoute: AdminContestantsIndexRoute,
   AdminEventsIndexRoute: AdminEventsIndexRoute,
   AdminMediaIndexRoute: AdminMediaIndexRoute,
+  AdminPaymentsIndexRoute: AdminPaymentsIndexRoute,
   AdminSponsorsIndexRoute: AdminSponsorsIndexRoute,
   AdminVotingIndexRoute: AdminVotingIndexRoute,
 }

@@ -7,6 +7,7 @@ import {
   Menu, X, ArrowRight, Crown, Sprout, Users, Globe2, Leaf,
   Heart, Award, Calendar, Clock, MapPin, Mail, Phone, Instagram, Facebook,
   Twitter, ChevronRight, Star, Quote, TrendingUp, Play, Minus, Plus, ShieldCheck, Loader2,
+  CheckCircle2, XCircle, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { listPublicContestants, listPublicEvents, listPublicMedia, type PublicEvent } from "@/lib/public.functions";
@@ -825,6 +826,7 @@ export function Contestants({
   const q = useQuery({
     queryKey: ["public", "contestants", scope],
     queryFn: () => fetchContestants({ data: { scope } }),
+    refetchInterval: scope === "active" ? 30_000 : false,
   });
   const contestants = q.data ?? [];
   const regions = ["All", ...Array.from(new Set(contestants.map((c) => c.province).filter(Boolean) as string[]))];
@@ -922,6 +924,30 @@ export function Contestants({
 
 // ---------- Voting ----------
 
+type VoteResultState = "paid" | "pending" | "failed" | "review" | "closed";
+type VotePhase =
+  | { step: "form" }
+  | { step: "paying" }
+  | { step: "verifying"; reference: string }
+  | { step: "result"; state: VoteResultState; reference: string | null; quantity: number; name: string; votes: number | null; free?: boolean };
+
+const PENDING_VOTES_KEY = "maz_pending_votes";
+type StoredPendingVote = { reference: string; name: string; quantity: number; at: number };
+
+function readPendingVotes(): StoredPendingVote[] {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(PENDING_VOTES_KEY) ?? "[]") as StoredPendingVote[];
+    return Array.isArray(raw) ? raw.filter((p) => p && typeof p.reference === "string" && Date.now() - p.at < 24 * 3600_000) : [];
+  } catch {
+    return [];
+  }
+}
+function writePendingVotes(list: StoredPendingVote[]) {
+  try { window.localStorage.setItem(PENDING_VOTES_KEY, JSON.stringify(list.slice(-10))); } catch { /* storage unavailable */ }
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const votesLabel = (n: number) => `${n.toLocaleString("en-US")} vote${n === 1 ? "" : "s"}`;
+
 export function Voting() {
   const qc = useQueryClient();
   const fetchCampaign = useServerFn(getPublicActiveCampaign);
@@ -946,131 +972,370 @@ export function Voting() {
     queryFn: () => fetchContestants({ data: { scope: "active" } }),
   });
 
-
   const [contestantId, setContestantId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [email, setEmail] = useState("");
+  const [phase, setPhase] = useState<VotePhase>({ step: "form" });
+  const cancelled = useRef(false);
 
   useEffect(() => {
-    const onVoteFor = (e: Event) => setContestantId(Number((e as CustomEvent).detail));
+    const onVoteFor = (e: Event) => {
+      setPhase({ step: "form" });
+      setContestantId(Number((e as CustomEvent).detail));
+    };
     window.addEventListener("vote-for", onVoteFor);
     return () => window.removeEventListener("vote-for", onVoteFor);
   }, []);
 
+  const refreshCounts = () => {
+    qc.invalidateQueries({ queryKey: ["public", "leaderboard"] });
+    qc.invalidateQueries({ queryKey: ["public", "contestants"] });
+  };
+
+  // Resume payments started earlier (e.g. the visitor closed the tab while approving mobile money).
+  useEffect(() => {
+    const pending = readPendingVotes();
+    if (pending.length === 0) return;
+    let stop = false;
+    (async () => {
+      const keep: StoredPendingVote[] = [];
+      let changed = false;
+      for (const p of pending) {
+        if (stop) return;
+        try {
+          const r = await verify({ data: { reference: p.reference } });
+          if (r.state === "paid") {
+            toast.success(`Payment confirmed — ${votesLabel(p.quantity)} added for ${p.name}. Thank you!`);
+            changed = true;
+          } else if (r.state === "pending") keep.push(p);
+          else if (r.state === "review") toast.info(`Your payment for ${p.name} is being reviewed by our team. Reference: ${p.reference}`);
+        } catch {
+          keep.push(p);
+        }
+      }
+      writePendingVotes(keep);
+      if (changed) refreshCounts();
+    })();
+    return () => { stop = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const campaign = campaignQ.data;
-  const board = boardQ.data ?? [];
+  const board = boardQ.data;
   const contestants = contestantsQ.data ?? [];
-  const max = Math.max(1, ...board.map((r) => r.votes));
   const pricePerVote = campaign?.price_per_vote ?? 0;
-  const totalCost = quantity * pricePerVote;
+  const totalCost = Math.round(quantity * pricePerVote * 100) / 100;
+  const selected = contestants.find((c) => Number(c.id) === contestantId);
+
+  /** Polls the server (which asks Lenco) until the payment settles or we give up. */
+  async function waitForConfirmation(reference: string, attempts: number) {
+    for (let i = 0; i < attempts; i++) {
+      if (cancelled.current) break;
+      try {
+        const r = await verify({ data: { reference } });
+        if (r.state !== "pending") return r;
+      } catch {
+        /* network blip — keep trying */
+      }
+      if (i < attempts - 1) await sleep(3000);
+    }
+    return { state: "pending" as const, votes: null };
+  }
 
   const mutate = useMutation({
     mutationFn: async () => {
       if (!contestantId) throw new Error("Please select a contestant.");
       if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Quantity must be at least 1.");
-      if (pricePerVote > 0 && !email.trim()) throw new Error("Please enter your email to pay for votes.");
+      if (pricePerVote > 0 && !/^\S+@\S+\.\S+$/.test(email.trim())) throw new Error("Please enter a valid email to pay for votes.");
+      cancelled.current = false;
       const res = await submitVote({
-        data: {
-          contestant_id: contestantId,
-          quantity,
-          voter_email: email.trim() || undefined,
-        },
+        data: { contestant_id: contestantId, quantity, voter_email: email.trim() || undefined },
       });
-      if (res.status === "valid" || !res.payment_ref) return { res, outcome: "free" as const };
+      const name = res.contestant.full_name;
+      if (res.status === "valid" || !res.payment_ref) {
+        setPhase({ step: "result", state: "paid", reference: null, quantity: res.quantity, name, votes: res.contestant.votes, free: true });
+        return;
+      }
+      const reference = res.payment_ref;
       const { key } = await fetchKey();
       if (!key) throw new Error("Online payments are not available right now.");
-      const opened = await openLencoCheckout({
-        publicKey: key,
-        reference: res.payment_ref,
-        email: email.trim(),
-        amount: res.amount,
-        label: `${res.quantity} vote${res.quantity === 1 ? "" : "s"} for ${res.contestant.full_name}`,
-      });
-      if (opened === "closed") return { res, outcome: "closed" as const };
-      const check = await verify({ data: { reference: res.payment_ref } });
-      return { res, outcome: check.state };
+      writePendingVotes([...readPendingVotes().filter((p) => p.reference !== reference), { reference, name, quantity: res.quantity, at: Date.now() }]);
+
+      setPhase({ step: "paying" });
+      let outcome: Awaited<ReturnType<typeof openLencoCheckout>>;
+      try {
+        outcome = await openLencoCheckout({
+          publicKey: key,
+          reference,
+          email: email.trim(),
+          amount: res.amount,
+          label: `${votesLabel(res.quantity)} for ${name}`,
+        });
+      } catch (e) {
+        setPhase({ step: "form" });
+        throw e;
+      }
+
+      setPhase({ step: "verifying", reference });
+      // Closed without paying: check once (a mobile money approval may still land), otherwise poll for ~60s.
+      const check = await waitForConfirmation(reference, outcome === "closed" ? 1 : 20);
+      let state: VoteResultState = check.state === "not_found" ? "failed" : check.state;
+      if (outcome === "closed" && state === "pending") state = "closed";
+      if (state === "paid" || state === "failed" || state === "review") {
+        writePendingVotes(readPendingVotes().filter((p) => p.reference !== reference));
+      }
+      setPhase({ step: "result", state, reference, quantity: res.quantity, name, votes: check.votes ?? null });
     },
-    onSuccess: ({ res, outcome }) => {
-      const name = res.contestant.full_name;
-      const n = `${res.quantity} vote${res.quantity === 1 ? "" : "s"}`;
-      if (outcome === "free" || outcome === "paid") toast.success(`Payment confirmed — ${n} added for ${name}. Thank you!`);
-      else if (outcome === "closed") toast.info("Payment window closed. Your votes were not counted.");
-      else if (outcome === "failed") toast.error("Payment failed. Your votes were not counted.");
-      else toast.info(`Waiting for your payment to confirm. Your ${n} for ${name} will be added automatically once it does.`);
-      if (outcome !== "closed") { setContestantId(null); setQuantity(1); }
-      qc.invalidateQueries({ queryKey: ["public", "leaderboard"] });
-      qc.invalidateQueries({ queryKey: ["public", "contestants"] });
-    },
+    onSuccess: () => refreshCounts(),
     onError: (err) => {
+      setPhase({ step: "form" });
       toast.error(err instanceof Error ? err.message : "Could not record your vote.");
     },
   });
 
-  const noCampaign = !campaignQ.isLoading && !campaign;
+  const recheck = useMutation({
+    mutationFn: async () => {
+      if (phase.step !== "result" || !phase.reference) return;
+      const r = await waitForConfirmation(phase.reference, 1);
+      const state: VoteResultState = r.state === "not_found" ? "failed" : r.state === "pending" && phase.state === "closed" ? "closed" : r.state;
+      if (state === "paid" || state === "failed" || state === "review") {
+        writePendingVotes(readPendingVotes().filter((p) => p.reference !== phase.reference));
+      }
+      setPhase({ ...phase, state, votes: r.votes ?? phase.votes });
+      if (state === "paid") refreshCounts();
+    },
+  });
 
-  const selected = contestants.find((c) => Number(c.id) === contestantId);
+  const busy = mutate.isPending;
+  const noCampaign = !campaignQ.isLoading && !campaign;
+  const closeDialog = () => {
+    cancelled.current = true;
+    setContestantId(null);
+    setQuantity(1);
+    setPhase({ step: "form" });
+  };
+
+  const rows = board?.rows ?? [];
+  const max = Math.max(1, ...rows.map((r) => Number(r.votes)));
 
   return (
-    <Dialog open={contestantId !== null} onOpenChange={(o) => { if (!o && !mutate.isPending) { setContestantId(null); setQuantity(1); } }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto gap-0 rounded-lg p-0">
-        <DialogHeader className="px-6 pt-6 pb-5 text-left border-b border-border">
-          <div className="flex items-center gap-2 text-xs text-gold-deep font-semibold mb-2"><Crown className="size-4" /> MISS AGRICULTURE ZAMBIA</div>
-          <DialogTitle className="font-display text-3xl font-medium tracking-normal">Make your vote count.</DialogTitle>
-          <DialogDescription className="pr-4">{campaign?.name ?? "Contestant voting"}</DialogDescription>
-        </DialogHeader>
-        <div className="px-6 py-5 flex items-center gap-4 bg-secondary/40">
-          <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
-            {selected?.profile_photo ? <img src={selected.profile_photo} alt={selected.full_name} className="h-full w-full object-cover object-top" /> : <div className="h-full grid place-items-center"><Crown className="size-6 text-gold-deep" /></div>}
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs text-muted-foreground mb-1">Your chosen contestant</div>
-            <h3 className="font-display text-xl leading-tight tracking-normal break-words">{selected?.full_name ?? "Contestant"}</h3>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {selected?.province && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{selected.province}</span>}
-              <span className="inline-flex items-center gap-1"><Heart className="size-3 text-gold-deep" />{Number(selected?.votes ?? 0).toLocaleString("en-US")} votes</span>
-            </div>
-          </div>
-        </div>
-        {noCampaign ? (
-          <div className="px-6 py-8 text-center">
-            <Clock className="size-7 text-gold-deep mx-auto mb-3" />
-            <h3 className="font-display text-xl mb-2">Voting is currently closed</h3>
-            <p className="text-sm text-muted-foreground">Please check back when the next campaign opens.</p>
-          </div>
-        ) : campaignQ.isLoading ? (
-          <div className="p-8 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Loading voting details…</div>
-        ) : (
-          <form onSubmit={(e) => { e.preventDefault(); mutate.mutate(); }} className="p-6 space-y-5">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-2.5">
-                <Label htmlFor="vote-quantity">Number of votes</Label>
-                <span className="text-xs text-muted-foreground">{pricePerVote > 0 ? `ZMW ${pricePerVote.toFixed(2)} / vote` : "Free voting"}</span>
+    <>
+      {rows.length > 0 && (
+        <section id="voting" className="py-20 md:py-24 bg-secondary/30 border-y border-border">
+          <div className="container-luxe">
+            <Reveal>
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+                <div>
+                  <SectionLabel>Live standings</SectionLabel>
+                  <h2 className="font-display text-4xl md:text-5xl leading-[1.05]">
+                    Who's <span className="italic text-gradient-gold">leading the vote.</span>
+                  </h2>
+                  <p className="text-muted-foreground mt-3 max-w-xl">
+                    Only votes with a confirmed payment are counted. Standings refresh automatically.
+                  </p>
+                </div>
+                <div className="flex gap-8 md:text-right">
+                  <div>
+                    <div className="text-3xl font-semibold tabular-nums">{(board?.totalVotes ?? 0).toLocaleString("en-US")}</div>
+                    <div className="text-xs text-muted-foreground">Confirmed votes</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-semibold tabular-nums">{board?.contestants ?? 0}</div>
+                    <div className="text-xs text-muted-foreground">Contestants</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center h-12 border border-input rounded-md overflow-hidden">
-                <Button type="button" variant="ghost" className="h-full w-12 rounded-none shrink-0" aria-label="Decrease votes" title="Decrease votes" disabled={quantity <= 1 || mutate.isPending} onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
-                <Input id="vote-quantity" type="number" min={1} max={1000} value={quantity} disabled={mutate.isPending} onChange={(e) => setQuantity(Math.max(1, Math.min(1000, Number(e.target.value) || 1)))} required className="h-full border-0 rounded-none shadow-none text-center font-semibold text-lg tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                <Button type="button" variant="ghost" className="h-full w-12 rounded-none shrink-0" aria-label="Increase votes" title="Increase votes" disabled={quantity >= 1000 || mutate.isPending} onClick={() => setQuantity(Math.min(1000, quantity + 1))}><Plus /></Button>
+            </Reveal>
+            <ol className="space-y-3">
+              {rows.map((r, i) => (
+                <li key={r.id} className="flex items-center gap-3 sm:gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
+                  <span className={`w-7 shrink-0 text-center font-display text-xl tabular-nums ${i === 0 ? "text-gold-deep" : "text-muted-foreground"}`}>{i + 1}</span>
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-secondary">
+                    {r.profile_photo
+                      ? <img src={r.profile_photo} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+                      : <div className="grid h-full place-items-center text-sm font-semibold text-primary/50">{r.full_name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="truncate font-medium">{r.full_name}</p>
+                      <p className="shrink-0 font-semibold tabular-nums">{Number(r.votes).toLocaleString("en-US")}<span className="ml-1 text-xs font-normal text-muted-foreground">votes</span></p>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                      <div className="h-full rounded-full bg-gold transition-[width] duration-700" style={{ width: `${(Number(r.votes) / max) * 100}%` }} />
+                    </div>
+                  </div>
+                  {campaign && (
+                    <Button size="sm" variant="outline" className="hidden sm:inline-flex shrink-0" onClick={() => { setPhase({ step: "form" }); setContestantId(r.id); }} aria-label={`Vote for ${r.full_name}`}>
+                      Vote
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
+
+      <Dialog
+        // Hidden while the Lenco window is open so it can receive clicks and keyboard focus.
+        open={contestantId !== null && phase.step !== "paying"}
+        onOpenChange={(o) => { if (!o && !busy) closeDialog(); }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-[480px] max-h-[calc(100dvh-2rem)] overflow-y-auto gap-0 rounded-lg p-0">
+          <DialogHeader className="px-6 pt-6 pb-5 text-left border-b border-border">
+            <div className="flex items-center gap-2 text-xs text-gold-deep font-semibold mb-2"><Crown className="size-4" /> MISS AGRICULTURE ZAMBIA</div>
+            <DialogTitle className="font-display text-3xl font-medium tracking-normal">
+              {phase.step === "result" ? "Your vote" : phase.step === "verifying" ? "Confirming payment" : "Make your vote count."}
+            </DialogTitle>
+            <DialogDescription className="pr-4">{campaign?.name ?? "Contestant voting"}</DialogDescription>
+          </DialogHeader>
+
+          {phase.step === "verifying" ? (
+            <div className="px-6 py-10 text-center" role="status" aria-live="polite">
+              <Loader2 className="size-8 animate-spin text-gold-deep mx-auto mb-4" />
+              <h3 className="font-display text-xl mb-2">Confirming your payment with Lenco…</h3>
+              <p className="text-sm text-muted-foreground">If you paid with mobile money, approve the prompt on your phone. This can take up to a minute — please keep this window open.</p>
+              <p className="mt-4 font-mono text-xs text-muted-foreground break-all">Ref: {phase.reference}</p>
+            </div>
+          ) : phase.step === "result" ? (
+            <VoteResult
+              phase={phase}
+              rechecking={recheck.isPending}
+              onRecheck={() => recheck.mutate()}
+              onRetry={() => setPhase({ step: "form" })}
+              onDone={closeDialog}
+            />
+          ) : (
+            <>
+              <div className="px-6 py-5 flex items-center gap-4 bg-secondary/40">
+                <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
+                  {selected?.profile_photo ? <img src={selected.profile_photo} alt={selected.full_name} className="h-full w-full object-cover object-top" /> : <div className="h-full grid place-items-center"><Crown className="size-6 text-gold-deep" /></div>}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground mb-1">Your chosen contestant</div>
+                  <h3 className="font-display text-xl leading-tight tracking-normal break-words">{selected?.full_name ?? "Contestant"}</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    {selected?.province && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{selected.province}</span>}
+                    <span className="inline-flex items-center gap-1"><Heart className="size-3 text-gold-deep" />{votesLabel(Number(selected?.votes ?? 0))}</span>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-2 mt-2.5">
-                {[1, 5, 10, 50].map((n) => <Button key={n} type="button" variant={quantity === n ? "secondary" : "outline"} size="sm" aria-pressed={quantity === n} disabled={mutate.isPending} onClick={() => setQuantity(n)}>{n} {n === 1 ? "vote" : "votes"}</Button>)}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="vote-email">Email address{pricePerVote > 0 ? "" : " (optional)"}</Label>
-              <Input id="vote-email" type="email" autoComplete="email" value={email} maxLength={200} required={pricePerVote > 0} disabled={mutate.isPending} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="h-11" />
-            </div>
-            <div className="border-y border-border py-4 flex items-center justify-between gap-3">
-              <div><span className="text-sm font-medium">Total amount</span><div className="text-xs text-muted-foreground mt-1">{quantity} {quantity === 1 ? "vote" : "votes"} for {selected?.full_name.split(" ")[0] ?? "your contestant"}</div></div>
-              <span className="text-2xl font-semibold tabular-nums">{pricePerVote > 0 ? <><span className="text-xs font-medium text-muted-foreground mr-1.5">ZMW</span>{totalCost.toFixed(2)}</> : "Free"}</span>
-            </div>
-            <Button type="submit" disabled={mutate.isPending || !contestantId} className="w-full h-12">
-              {mutate.isPending ? <><Loader2 className="animate-spin" />Processing…</> : <>{pricePerVote > 0 ? `Pay ZMW ${totalCost.toFixed(2)} & vote` : "Cast your vote"}<ArrowRight /></>}
-            </Button>
-            {pricePerVote > 0 && <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-4 text-primary" />Secure payment with Lenco Pay</div>}
-          </form>
+              {noCampaign ? (
+                <div className="px-6 py-8 text-center">
+                  <Clock className="size-7 text-gold-deep mx-auto mb-3" />
+                  <h3 className="font-display text-xl mb-2">Voting is currently closed</h3>
+                  <p className="text-sm text-muted-foreground">Please check back when the next campaign opens.</p>
+                </div>
+              ) : campaignQ.isLoading ? (
+                <div className="p-8 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />Loading voting details…</div>
+              ) : (
+                <form onSubmit={(e) => { e.preventDefault(); mutate.mutate(); }} className="p-6 space-y-5">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <Label htmlFor="vote-quantity">Number of votes</Label>
+                      <span className="text-xs text-muted-foreground">{pricePerVote > 0 ? `ZMW ${pricePerVote.toFixed(2)} / vote` : "Free voting"}</span>
+                    </div>
+                    <div className="flex items-center h-12 border border-input rounded-md overflow-hidden">
+                      <Button type="button" variant="ghost" className="h-full w-12 rounded-none shrink-0" aria-label="Decrease votes" title="Decrease votes" disabled={quantity <= 1 || busy} onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus /></Button>
+                      <Input id="vote-quantity" type="number" inputMode="numeric" min={1} max={1000} value={quantity} disabled={busy} onChange={(e) => setQuantity(Math.max(1, Math.min(1000, Math.floor(Number(e.target.value)) || 1)))} required className="h-full border-0 rounded-none shadow-none text-center font-semibold text-lg tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                      <Button type="button" variant="ghost" className="h-full w-12 rounded-none shrink-0" aria-label="Increase votes" title="Increase votes" disabled={quantity >= 1000 || busy} onClick={() => setQuantity(Math.min(1000, quantity + 1))}><Plus /></Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 mt-2.5">
+                      {[1, 5, 10, 50].map((n) => <Button key={n} type="button" variant={quantity === n ? "secondary" : "outline"} size="sm" aria-pressed={quantity === n} disabled={busy} onClick={() => setQuantity(n)}>{n} {n === 1 ? "vote" : "votes"}</Button>)}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vote-email">Email address{pricePerVote > 0 ? "" : " (optional)"}</Label>
+                    <Input id="vote-email" type="email" autoComplete="email" value={email} maxLength={200} required={pricePerVote > 0} disabled={busy} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="h-11" />
+                    {pricePerVote > 0 && <p className="text-xs text-muted-foreground">Your payment receipt is sent here.</p>}
+                  </div>
+                  <div className="border-y border-border py-4 flex items-center justify-between gap-3">
+                    <div><span className="text-sm font-medium">Total amount</span><div className="text-xs text-muted-foreground mt-1">{votesLabel(quantity)} for {selected?.full_name.split(" ")[0] ?? "your contestant"}</div></div>
+                    <span className="text-2xl font-semibold tabular-nums">{pricePerVote > 0 ? <><span className="text-xs font-medium text-muted-foreground mr-1.5">ZMW</span>{totalCost.toFixed(2)}</> : "Free"}</span>
+                  </div>
+                  <Button type="submit" disabled={busy || !contestantId} className="w-full h-12">
+                    {busy ? <><Loader2 className="animate-spin" />Opening secure payment…</> : <>{pricePerVote > 0 ? `Pay ZMW ${totalCost.toFixed(2)} & vote` : "Cast your vote"}<ArrowRight /></>}
+                  </Button>
+                  {pricePerVote > 0 && (
+                    <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+                      <ShieldCheck className="size-4 shrink-0 text-primary" />Secure payment with Lenco Pay · Mobile money or card. Votes count once payment is confirmed.
+                    </p>
+                  )}
+                </form>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function VoteResult({
+  phase,
+  rechecking,
+  onRecheck,
+  onRetry,
+  onDone,
+}: {
+  phase: Extract<VotePhase, { step: "result" }>;
+  rechecking: boolean;
+  onRecheck: () => void;
+  onRetry: () => void;
+  onDone: () => void;
+}) {
+  const n = votesLabel(phase.quantity);
+  const view = {
+    paid: {
+      icon: <CheckCircle2 className="size-10 text-primary" />,
+      title: phase.free ? "Vote recorded" : "Payment confirmed",
+      body: `${n} added for ${phase.name}. Thank you for your support!`,
+    },
+    pending: {
+      icon: <Clock className="size-10 text-gold-deep" />,
+      title: "Waiting for payment confirmation",
+      body: `We haven't received confirmation from Lenco yet. Mobile money approvals can take a few minutes. Your ${n} for ${phase.name} will be added automatically once the payment is confirmed — nothing is counted until then.`,
+    },
+    closed: {
+      icon: <XCircle className="size-10 text-muted-foreground" />,
+      title: "Payment not completed",
+      body: "The payment window was closed before payment was made, so no votes were counted. If you approved a mobile money prompt, tap “Check again” in a moment.",
+    },
+    failed: {
+      icon: <XCircle className="size-10 text-destructive" />,
+      title: "Payment failed",
+      body: "Your payment didn't go through and no votes were counted. Please try again.",
+    },
+    review: {
+      icon: <AlertTriangle className="size-10 text-gold-deep" />,
+      title: "Payment under review",
+      body: "We received a payment that doesn't match this order, so our team will review it before any votes are counted. Keep your reference below.",
+    },
+  }[phase.state];
+
+  return (
+    <div className="px-6 py-8 text-center" role="status" aria-live="polite">
+      <div className="mx-auto mb-4 grid place-items-center">{view.icon}</div>
+      <h3 className="font-display text-2xl mb-2">{view.title}</h3>
+      <p className="text-sm text-muted-foreground">{view.body}</p>
+      {phase.state === "paid" && phase.votes != null && (
+        <p className="mt-4 text-sm">{phase.name} now has <span className="font-semibold tabular-nums">{votesLabel(phase.votes)}</span>.</p>
+      )}
+      {phase.reference && (
+        <p className="mt-4 rounded-md bg-secondary/60 px-3 py-2 font-mono text-xs text-muted-foreground break-all">Reference: {phase.reference}</p>
+      )}
+      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+        <Button variant={phase.state === "paid" ? "default" : "outline"} onClick={onDone} className="h-11">Done</Button>
+        {(phase.state === "pending" || phase.state === "closed") && phase.reference && (
+          <Button variant="outline" onClick={onRecheck} disabled={rechecking} className="h-11">
+            {rechecking ? <Loader2 className="animate-spin" /> : null}Check again
+          </Button>
         )}
-      </DialogContent>
-    </Dialog>
+        {(phase.state === "failed" || phase.state === "closed") && (
+          <Button onClick={onRetry} className="h-11">Try again <ArrowRight /></Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1329,6 +1594,7 @@ function TicketDialog({
   const fetchKey = useServerFn(getLencoPublicKey);
   const verify = useServerFn(verifyPayment);
   const [form, setForm] = useState({ holder_name: "", email: "", phone: "", quantity: 1 });
+  const [paying, setPaying] = useState(false);
   const price = event?.ticket_price ?? 0;
 
   const mutation = useMutation({
@@ -1337,25 +1603,38 @@ function TicketDialog({
       const order = await createOrder({ data: { event_id: event.id, ...form } });
       const { key } = await fetchKey();
       if (!key) throw new Error("Online payments are not available right now.");
-      const opened = await openLencoCheckout({
-        publicKey: key,
-        reference: order.reference,
-        email: order.email,
-        amount: order.amount,
-        label: order.label,
-        phone: form.phone,
-        name: form.holder_name,
-      });
-      if (opened === "closed") return "closed" as const;
-      return (await verify({ data: { reference: order.reference } })).state;
+      setPaying(true);
+      let opened: Awaited<ReturnType<typeof openLencoCheckout>>;
+      try {
+        opened = await openLencoCheckout({
+          publicKey: key,
+          reference: order.reference,
+          email: order.email,
+          amount: order.amount,
+          label: order.label,
+          phone: form.phone,
+          name: form.holder_name,
+        });
+      } finally {
+        setPaying(false);
+      }
+      // Poll briefly: mobile money confirmations can lag a few seconds behind the popup.
+      const attempts = opened === "closed" ? 1 : 20;
+      for (let i = 0; i < attempts; i++) {
+        const { state } = await verify({ data: { reference: order.reference } });
+        if (state !== "pending") return state;
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 3000));
+      }
+      return opened === "closed" ? ("closed" as const) : ("pending" as const);
     },
     onSuccess: (state) => {
       if (state === "paid") {
         toast.success("Payment confirmed — your ticket is booked! Check your email for details.");
         setForm({ holder_name: "", email: "", phone: "", quantity: 1 });
         onOpenChange(false);
-      } else if (state === "closed") toast.info("Payment window closed. Your ticket was not booked.");
-      else if (state === "failed") toast.error("Payment failed. Your ticket was not booked.");
+      } else if (state === "closed") toast.info("Payment window closed before payment was made. Your ticket was not booked.");
+      else if (state === "failed" || state === "not_found") toast.error("Payment failed. Your ticket was not booked.");
+      else if (state === "review") toast.info("We received a payment that doesn't match this order. Our team will review it and contact you.");
       else {
         toast.info("Waiting for your payment to confirm. Your ticket will be booked automatically once it does.");
         onOpenChange(false);
@@ -1365,7 +1644,7 @@ function TicketDialog({
   });
 
   return (
-    <Dialog open={!!event} onOpenChange={onOpenChange}>
+    <Dialog open={!!event && !paying} onOpenChange={(o) => { if (!mutation.isPending) onOpenChange(o); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Tickets for {event?.title}</DialogTitle>

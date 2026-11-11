@@ -53,9 +53,9 @@ function AdminDashboard() {
   const counters: Counter[] = [
     { label: "Total Contestants", value: c?.contestants ?? 0, icon: Users, accent: "#1b4332" },
     { label: "Active Contestants", value: c?.activeContestants ?? 0, icon: UserCheck, accent: "#2d6a4f" },
-    { label: "Votes Received", value: c?.votes ?? 0, icon: Vote, accent: "#40916c" },
+    { label: "Confirmed Votes", value: c?.votes ?? 0, icon: Vote, accent: "#40916c" },
     {
-      label: "Revenue Generated",
+      label: "Vote Revenue (paid)",
       value: `ZMW ${(c?.revenue ?? 0).toLocaleString()}`,
       icon: DollarSign,
       accent: "#d4af37",
