@@ -1,0 +1,10 @@
+[
+  {"capability":"code","source":"github danieladelola/setup-buddy-2c259502","outcome":"migrate","status":"done","next_action":"none"},
+  {"capability":"images and video","source":"Lovable assets in older projects","outcome":"re-uploaded to this project","status":"done","next_action":"none"},
+  {"capability":"database + records","source":"self-hosted Postgres via DATABASE_URL","outcome":"pending user decision","status":"pending","next_action":"ask: keep existing database or move to Lovable Cloud"},
+  {"capability":"admin login","source":"ADMIN_EMAIL/ADMIN_PASSWORD + cookie session (SESSION_SECRET)","outcome":"preserve","status":"pending","next_action":"set ADMIN_EMAIL, ADMIN_PASSWORD, SESSION_SECRET"},
+  {"capability":"payments (Lenco Pay) + webhook /api/public/lenco-webhook","source":"LENCO_SECRET_KEY, LENCO_PUBLIC_KEY","outcome":"preserve","status":"pending","next_action":"collect Lenco keys; update webhook URL after publish"},
+  {"capability":"AI portrait generation","source":"LOVABLE_API_KEY","outcome":"preserve","status":"done","next_action":"none (key managed by Lovable)"},
+  {"capability":"file uploads","source":"stored in uploaded_files table","outcome":"follows database decision","status":"pending","next_action":"verify after database connected"},
+  {"capability":"Docker self-host","source":"Dockerfile + nitro node-server preset","outcome":"preserve","status":"done","next_action":"none"}
+]

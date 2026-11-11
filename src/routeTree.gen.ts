@@ -10,33 +10,351 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as CancellationPolicyRouteImport } from './routes/cancellation-policy'
+import { Route as ContestantRouteImport } from './routes/contestant'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
+import { Route as ShippingPolicyRouteImport } from './routes/shipping-policy'
+import { Route as SponsorsRouteImport } from './routes/sponsors'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminApplicationsIndexRouteImport } from './routes/admin/applications.index'
+import { Route as AdminContestantsIndexRouteImport } from './routes/admin/contestants.index'
+import { Route as AdminContestantsIdRouteImport } from './routes/admin/contestants.$id'
+import { Route as AdminContestantsNewRouteImport } from './routes/admin/contestants.new'
+import { Route as AdminEventsIndexRouteImport } from './routes/admin/events.index'
+import { Route as AdminEventsRegistrationsRouteImport } from './routes/admin/events.registrations'
+import { Route as AdminMediaIndexRouteImport } from './routes/admin/media.index'
+import { Route as AdminSponsorsIndexRouteImport } from './routes/admin/sponsors.index'
+import { Route as AdminVotingIndexRouteImport } from './routes/admin/voting.index'
+import { Route as ApiAdminGeneratePortraitRouteImport } from './routes/api/admin/generate-portrait'
+import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
+import { Route as ApiFilesIdRouteImport } from './routes/api/files.$id'
+import { Route as ApiPublicLencoWebhookRouteImport } from './routes/api/public/lenco-webhook'
+import { Route as ApiPublicUploadRouteImport } from './routes/api/public/upload'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CancellationPolicyRoute = CancellationPolicyRouteImport.update({
+  id: '/cancellation-policy',
+  path: '/cancellation-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContestantRoute = ContestantRouteImport.update({
+  id: '/contestant',
+  path: '/contestant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundPolicyRoute = RefundPolicyRouteImport.update({
+  id: '/refund-policy',
+  path: '/refund-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShippingPolicyRoute = ShippingPolicyRouteImport.update({
+  id: '/shipping-policy',
+  path: '/shipping-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SponsorsRoute = SponsorsRouteImport.update({
+  id: '/sponsors',
+  path: '/sponsors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminApplicationsIndexRoute = AdminApplicationsIndexRouteImport.update({
+  id: '/admin/applications/',
+  path: '/admin/applications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContestantsIndexRoute = AdminContestantsIndexRouteImport.update({
+  id: '/admin/contestants/',
+  path: '/admin/contestants/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContestantsIdRoute = AdminContestantsIdRouteImport.update({
+  id: '/admin/contestants/$id',
+  path: '/admin/contestants/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContestantsNewRoute = AdminContestantsNewRouteImport.update({
+  id: '/admin/contestants/new',
+  path: '/admin/contestants/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminEventsIndexRoute = AdminEventsIndexRouteImport.update({
+  id: '/admin/events/',
+  path: '/admin/events/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminEventsRegistrationsRoute =
+  AdminEventsRegistrationsRouteImport.update({
+    id: '/admin/events/registrations',
+    path: '/admin/events/registrations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdminMediaIndexRoute = AdminMediaIndexRouteImport.update({
+  id: '/admin/media/',
+  path: '/admin/media/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSponsorsIndexRoute = AdminSponsorsIndexRouteImport.update({
+  id: '/admin/sponsors/',
+  path: '/admin/sponsors/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVotingIndexRoute = AdminVotingIndexRouteImport.update({
+  id: '/admin/voting/',
+  path: '/admin/voting/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminGeneratePortraitRoute =
+  ApiAdminGeneratePortraitRouteImport.update({
+    id: '/api/admin/generate-portrait',
+    path: '/api/admin/generate-portrait',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
+  id: '/api/admin/upload',
+  path: '/api/admin/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
+  id: '/api/files/$id',
+  path: '/api/files/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicLencoWebhookRoute = ApiPublicLencoWebhookRouteImport.update({
+  id: '/api/public/lenco-webhook',
+  path: '/api/public/lenco-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicUploadRoute = ApiPublicUploadRouteImport.update({
+  id: '/api/public/upload',
+  path: '/api/public/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/cancellation-policy': typeof CancellationPolicyRoute
+  '/contestant': typeof ContestantRoute
+  '/events': typeof EventsRoute
+  '/gallery': typeof GalleryRoute
+  '/refund-policy': typeof RefundPolicyRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/sponsors': typeof SponsorsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/contestants/$id': typeof AdminContestantsIdRoute
+  '/admin/contestants/new': typeof AdminContestantsNewRoute
+  '/admin/events/registrations': typeof AdminEventsRegistrationsRoute
+  '/api/admin/generate-portrait': typeof ApiAdminGeneratePortraitRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/public/lenco-webhook': typeof ApiPublicLencoWebhookRoute
+  '/api/public/upload': typeof ApiPublicUploadRoute
+  '/admin/applications/': typeof AdminApplicationsIndexRoute
+  '/admin/contestants/': typeof AdminContestantsIndexRoute
+  '/admin/events/': typeof AdminEventsIndexRoute
+  '/admin/media/': typeof AdminMediaIndexRoute
+  '/admin/sponsors/': typeof AdminSponsorsIndexRoute
+  '/admin/voting/': typeof AdminVotingIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/cancellation-policy': typeof CancellationPolicyRoute
+  '/contestant': typeof ContestantRoute
+  '/events': typeof EventsRoute
+  '/gallery': typeof GalleryRoute
+  '/refund-policy': typeof RefundPolicyRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/sponsors': typeof SponsorsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/contestants/$id': typeof AdminContestantsIdRoute
+  '/admin/contestants/new': typeof AdminContestantsNewRoute
+  '/admin/events/registrations': typeof AdminEventsRegistrationsRoute
+  '/api/admin/generate-portrait': typeof ApiAdminGeneratePortraitRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/public/lenco-webhook': typeof ApiPublicLencoWebhookRoute
+  '/api/public/upload': typeof ApiPublicUploadRoute
+  '/admin/applications': typeof AdminApplicationsIndexRoute
+  '/admin/contestants': typeof AdminContestantsIndexRoute
+  '/admin/events': typeof AdminEventsIndexRoute
+  '/admin/media': typeof AdminMediaIndexRoute
+  '/admin/sponsors': typeof AdminSponsorsIndexRoute
+  '/admin/voting': typeof AdminVotingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/cancellation-policy': typeof CancellationPolicyRoute
+  '/contestant': typeof ContestantRoute
+  '/events': typeof EventsRoute
+  '/gallery': typeof GalleryRoute
+  '/refund-policy': typeof RefundPolicyRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
+  '/sponsors': typeof SponsorsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/contestants/$id': typeof AdminContestantsIdRoute
+  '/admin/contestants/new': typeof AdminContestantsNewRoute
+  '/admin/events/registrations': typeof AdminEventsRegistrationsRoute
+  '/api/admin/generate-portrait': typeof ApiAdminGeneratePortraitRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/public/lenco-webhook': typeof ApiPublicLencoWebhookRoute
+  '/api/public/upload': typeof ApiPublicUploadRoute
+  '/admin/applications/': typeof AdminApplicationsIndexRoute
+  '/admin/contestants/': typeof AdminContestantsIndexRoute
+  '/admin/events/': typeof AdminEventsIndexRoute
+  '/admin/media/': typeof AdminMediaIndexRoute
+  '/admin/sponsors/': typeof AdminSponsorsIndexRoute
+  '/admin/voting/': typeof AdminVotingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/cancellation-policy'
+    | '/contestant'
+    | '/events'
+    | '/gallery'
+    | '/refund-policy'
+    | '/shipping-policy'
+    | '/sponsors'
+    | '/admin/login'
+    | '/admin/'
+    | '/admin/contestants/$id'
+    | '/admin/contestants/new'
+    | '/admin/events/registrations'
+    | '/api/admin/generate-portrait'
+    | '/api/admin/upload'
+    | '/api/files/$id'
+    | '/api/public/lenco-webhook'
+    | '/api/public/upload'
+    | '/admin/applications/'
+    | '/admin/contestants/'
+    | '/admin/events/'
+    | '/admin/media/'
+    | '/admin/sponsors/'
+    | '/admin/voting/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/cancellation-policy'
+    | '/contestant'
+    | '/events'
+    | '/gallery'
+    | '/refund-policy'
+    | '/shipping-policy'
+    | '/sponsors'
+    | '/admin/login'
+    | '/admin'
+    | '/admin/contestants/$id'
+    | '/admin/contestants/new'
+    | '/admin/events/registrations'
+    | '/api/admin/generate-portrait'
+    | '/api/admin/upload'
+    | '/api/files/$id'
+    | '/api/public/lenco-webhook'
+    | '/api/public/upload'
+    | '/admin/applications'
+    | '/admin/contestants'
+    | '/admin/events'
+    | '/admin/media'
+    | '/admin/sponsors'
+    | '/admin/voting'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/cancellation-policy'
+    | '/contestant'
+    | '/events'
+    | '/gallery'
+    | '/refund-policy'
+    | '/shipping-policy'
+    | '/sponsors'
+    | '/admin/login'
+    | '/admin/'
+    | '/admin/contestants/$id'
+    | '/admin/contestants/new'
+    | '/admin/events/registrations'
+    | '/api/admin/generate-portrait'
+    | '/api/admin/upload'
+    | '/api/files/$id'
+    | '/api/public/lenco-webhook'
+    | '/api/public/upload'
+    | '/admin/applications/'
+    | '/admin/contestants/'
+    | '/admin/events/'
+    | '/admin/media/'
+    | '/admin/sponsors/'
+    | '/admin/voting/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  CancellationPolicyRoute: typeof CancellationPolicyRoute
+  ContestantRoute: typeof ContestantRoute
+  EventsRoute: typeof EventsRoute
+  GalleryRoute: typeof GalleryRoute
+  RefundPolicyRoute: typeof RefundPolicyRoute
+  ShippingPolicyRoute: typeof ShippingPolicyRoute
+  SponsorsRoute: typeof SponsorsRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminContestantsIdRoute: typeof AdminContestantsIdRoute
+  AdminContestantsNewRoute: typeof AdminContestantsNewRoute
+  AdminEventsRegistrationsRoute: typeof AdminEventsRegistrationsRoute
+  ApiAdminGeneratePortraitRoute: typeof ApiAdminGeneratePortraitRoute
+  ApiAdminUploadRoute: typeof ApiAdminUploadRoute
+  ApiFilesIdRoute: typeof ApiFilesIdRoute
+  ApiPublicLencoWebhookRoute: typeof ApiPublicLencoWebhookRoute
+  ApiPublicUploadRoute: typeof ApiPublicUploadRoute
+  AdminApplicationsIndexRoute: typeof AdminApplicationsIndexRoute
+  AdminContestantsIndexRoute: typeof AdminContestantsIndexRoute
+  AdminEventsIndexRoute: typeof AdminEventsIndexRoute
+  AdminMediaIndexRoute: typeof AdminMediaIndexRoute
+  AdminSponsorsIndexRoute: typeof AdminSponsorsIndexRoute
+  AdminVotingIndexRoute: typeof AdminVotingIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +366,203 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cancellation-policy': {
+      id: '/cancellation-policy'
+      path: '/cancellation-policy'
+      fullPath: '/cancellation-policy'
+      preLoaderRoute: typeof CancellationPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contestant': {
+      id: '/contestant'
+      path: '/contestant'
+      fullPath: '/contestant'
+      preLoaderRoute: typeof ContestantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-policy': {
+      id: '/refund-policy'
+      path: '/refund-policy'
+      fullPath: '/refund-policy'
+      preLoaderRoute: typeof RefundPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipping-policy': {
+      id: '/shipping-policy'
+      path: '/shipping-policy'
+      fullPath: '/shipping-policy'
+      preLoaderRoute: typeof ShippingPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sponsors': {
+      id: '/sponsors'
+      path: '/sponsors'
+      fullPath: '/sponsors'
+      preLoaderRoute: typeof SponsorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/applications/': {
+      id: '/admin/applications/'
+      path: '/admin/applications'
+      fullPath: '/admin/applications/'
+      preLoaderRoute: typeof AdminApplicationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/contestants/': {
+      id: '/admin/contestants/'
+      path: '/admin/contestants'
+      fullPath: '/admin/contestants/'
+      preLoaderRoute: typeof AdminContestantsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/contestants/$id': {
+      id: '/admin/contestants/$id'
+      path: '/admin/contestants/$id'
+      fullPath: '/admin/contestants/$id'
+      preLoaderRoute: typeof AdminContestantsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/contestants/new': {
+      id: '/admin/contestants/new'
+      path: '/admin/contestants/new'
+      fullPath: '/admin/contestants/new'
+      preLoaderRoute: typeof AdminContestantsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/events/': {
+      id: '/admin/events/'
+      path: '/admin/events'
+      fullPath: '/admin/events/'
+      preLoaderRoute: typeof AdminEventsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/events/registrations': {
+      id: '/admin/events/registrations'
+      path: '/admin/events/registrations'
+      fullPath: '/admin/events/registrations'
+      preLoaderRoute: typeof AdminEventsRegistrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/media/': {
+      id: '/admin/media/'
+      path: '/admin/media'
+      fullPath: '/admin/media/'
+      preLoaderRoute: typeof AdminMediaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/sponsors/': {
+      id: '/admin/sponsors/'
+      path: '/admin/sponsors'
+      fullPath: '/admin/sponsors/'
+      preLoaderRoute: typeof AdminSponsorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/voting/': {
+      id: '/admin/voting/'
+      path: '/admin/voting'
+      fullPath: '/admin/voting/'
+      preLoaderRoute: typeof AdminVotingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/generate-portrait': {
+      id: '/api/admin/generate-portrait'
+      path: '/api/admin/generate-portrait'
+      fullPath: '/api/admin/generate-portrait'
+      preLoaderRoute: typeof ApiAdminGeneratePortraitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/upload': {
+      id: '/api/admin/upload'
+      path: '/api/admin/upload'
+      fullPath: '/api/admin/upload'
+      preLoaderRoute: typeof ApiAdminUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$id': {
+      id: '/api/files/$id'
+      path: '/api/files/$id'
+      fullPath: '/api/files/$id'
+      preLoaderRoute: typeof ApiFilesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/lenco-webhook': {
+      id: '/api/public/lenco-webhook'
+      path: '/api/public/lenco-webhook'
+      fullPath: '/api/public/lenco-webhook'
+      preLoaderRoute: typeof ApiPublicLencoWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/upload': {
+      id: '/api/public/upload'
+      path: '/api/public/upload'
+      fullPath: '/api/public/upload'
+      preLoaderRoute: typeof ApiPublicUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  CancellationPolicyRoute: CancellationPolicyRoute,
+  ContestantRoute: ContestantRoute,
+  EventsRoute: EventsRoute,
+  GalleryRoute: GalleryRoute,
+  RefundPolicyRoute: RefundPolicyRoute,
+  ShippingPolicyRoute: ShippingPolicyRoute,
+  SponsorsRoute: SponsorsRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminContestantsIdRoute: AdminContestantsIdRoute,
+  AdminContestantsNewRoute: AdminContestantsNewRoute,
+  AdminEventsRegistrationsRoute: AdminEventsRegistrationsRoute,
+  ApiAdminGeneratePortraitRoute: ApiAdminGeneratePortraitRoute,
+  ApiAdminUploadRoute: ApiAdminUploadRoute,
+  ApiFilesIdRoute: ApiFilesIdRoute,
+  ApiPublicLencoWebhookRoute: ApiPublicLencoWebhookRoute,
+  ApiPublicUploadRoute: ApiPublicUploadRoute,
+  AdminApplicationsIndexRoute: AdminApplicationsIndexRoute,
+  AdminContestantsIndexRoute: AdminContestantsIndexRoute,
+  AdminEventsIndexRoute: AdminEventsIndexRoute,
+  AdminMediaIndexRoute: AdminMediaIndexRoute,
+  AdminSponsorsIndexRoute: AdminSponsorsIndexRoute,
+  AdminVotingIndexRoute: AdminVotingIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
